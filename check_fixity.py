@@ -1,5 +1,6 @@
 import datetime
 import os
+import sqlite3
 from bdrocfl import ocfl
 
 
@@ -11,7 +12,7 @@ def get_env_variable(var):
 
 
 def check_objects(storage_root, db_conn, top_ntuple_segment='000'):
-    for pid in ocfl.walk_repo(storage_root), top_ntuple_segment=top_ntuple_segment):
+    for pid in ocfl.walk_repo(storage_root, top_ntuple_segment=top_ntuple_segment):
         now = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat()
         try:
             obj = ocfl.Object(storage_root, pid, deleted_ok=True)
