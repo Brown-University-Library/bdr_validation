@@ -12,7 +12,7 @@ def get_env_variable(var):
 
 
 def populate_dir_names(db_conn):
-    chars = '1234567890abcdef'
+    chars = '0123456789abcdef'
     for i in chars:
         for j in chars:
             for k in chars:
