@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import sqlite3
 from bdrocfl import ocfl
@@ -9,6 +10,16 @@ def get_env_variable(var):
         return os.environ[var]
     except KeyError:
         raise Exception(f'please set the {var} environment variable')
+
+
+def setup_logger(file_name):
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger('logger')
+    logger.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(file_name)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger
 
 
 def populate_dir_names(db_conn):
@@ -22,7 +33,7 @@ def populate_dir_names(db_conn):
 
 def init_db(db_conn):
     db_conn.execute('CREATE TABLE checks (timestamp TEXT NOT NULL, pid TEXT NOT NULL, result TEXT NOT NULL)')
-    db_conn.execute('CREATE TABLE history (dir_name TEXT NOT NULL, timestamp TEXT NULL)')
+    db_conn.execute('CREATE TABLE history (dir_name TEXT NOT NULL UNIQUE, timestamp TEXT NULL)')
     db_conn.commit()
     populate_dir_names(db_conn)
 
@@ -64,9 +75,13 @@ if __name__ == '__main__':
     '''
     OCFL_ROOT = get_env_variable('OCFL_ROOT')
     DB_NAME = get_env_variable('DB_NAME')
+    LOG_DIR = get_env_variable('LOG_DIR')
     NUM_DIRECTORIES = 24 #out of 4096 => this would go through the whole BDR in 171 days
+
+    logger = setup_logger(os.path.join(LOG_DIR, 'validation.log'))
     db_conn = sqlite3.connect(DB_NAME)
     directories = get_dir_names(db_conn, NUM_DIRECTORIES)
     for d in directories:
-        check_objects(OCFL_ROOT, db_conn)
+        logger.info(f'processing {d}')
+        check_objects(OCFL_ROOT, db_conn, top_ntuple_segment=d)
         set_dir_name_timestamp(db_conn, d)
