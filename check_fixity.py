@@ -22,6 +22,17 @@ def setup_logger(file_name):
     return logger
 
 
+def send_error_email(msg, server, mail_server, notification_email_address):
+    import smtplib
+    from email.mime.text import MIMEText
+    s = smtplib.SMTP(mail_server)
+    email_msg = MIMEText(msg)
+    email_msg['Subject'] = f'Validation error on {server}'
+    email_msg['From'] = f'validation@{server}'
+    email_msg['To'] = notification_email_address
+    s.sendmail(f'validation@{server}', [notification_email_address], email_msg.as_string())
+
+
 def populate_dir_names(db_conn):
     chars = '0123456789abcdef'
     for i in chars:
@@ -50,6 +61,7 @@ def set_dir_name_timestamp(db_conn, dir_name, ts=None):
 
 
 def check_objects(storage_root, db_conn, top_ntuple_segment='000'):
+    invalid_objects = set()
     for pid in ocfl.walk_repo(storage_root, top_ntuple_segment=top_ntuple_segment):
         now = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat()
         try:
@@ -59,10 +71,12 @@ def check_objects(storage_root, db_conn, top_ntuple_segment='000'):
                     (now, pid, 'pass')
                 )
         except Exception as e:
+            invalid_objects.add(pid)
             db_conn.execute('INSERT INTO checks (timestamp, pid, result) VALUES (?, ?, ?)',
                     (now, pid, f'ERR: {e}')
                 )
         db_conn.commit()
+    return invalid_objects
 
 
 if __name__ == '__main__':
@@ -76,12 +90,21 @@ if __name__ == '__main__':
     OCFL_ROOT = get_env_variable('OCFL_ROOT')
     DB_NAME = get_env_variable('DB_NAME')
     LOG_DIR = get_env_variable('LOG_DIR')
+    SERVER = get_env_variable('SERVER')
+    MAIL_SERVER = get_env_variable('MAIL_SERVER')
+    NOTIFICATION_EMAIL_ADDRESS = get_env_variable('NOTIFICATION_EMAIL_ADDRESS')
     NUM_DIRECTORIES = 24 #out of 4096 => this would go through the whole BDR in 171 days
 
     logger = setup_logger(os.path.join(LOG_DIR, 'validation.log'))
     db_conn = sqlite3.connect(DB_NAME)
     directories = get_dir_names(db_conn, NUM_DIRECTORIES)
+    all_invalid_objects = set()
     for d in directories:
         logger.info(f'processing {d}')
-        check_objects(OCFL_ROOT, db_conn, top_ntuple_segment=d)
+        invalid_objects = check_objects(OCFL_ROOT, db_conn, top_ntuple_segment=d)
+        all_invalid_objects.update(invalid_objects)
         set_dir_name_timestamp(db_conn, d)
+    if all_invalid_objects:
+        msg = f'invalid objects: {all_invalid_objects}'
+        logger.error(msg)
+        send_error_email(msg, SERVER, MAIL_SERVER, NOTIFICATION_EMAIL_ADDRESS)
