@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import sqlite3
+import time
 from bdrocfl import ocfl
 
 
@@ -60,7 +61,7 @@ def set_dir_name_timestamp(db_conn, dir_name, ts=None):
     db_conn.commit()
 
 
-def check_objects(storage_root, db_conn, top_ntuple_segment='000'):
+def check_objects(storage_root, db_conn, top_ntuple_segment='000', sleep_seconds=1):
     invalid_objects = set()
     for pid in ocfl.walk_repo(storage_root, top_ntuple_segment=top_ntuple_segment):
         now = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat()
@@ -76,6 +77,7 @@ def check_objects(storage_root, db_conn, top_ntuple_segment='000'):
                     (now, pid, f'ERR: {e}')
                 )
         db_conn.commit()
+        time.sleep(sleep_seconds)
     return invalid_objects
 
 
