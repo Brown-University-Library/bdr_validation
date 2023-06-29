@@ -62,6 +62,7 @@ def set_dir_name_timestamp(db_conn, dir_name, ts=None):
 
 
 def check_objects(storage_root, db_conn, top_ntuple_segment='000', sleep_seconds=1):
+    # logger = setup_logger(os.path.join(LOG_DIR, 'validation.log'))
     invalid_objects = set()
     for pid in ocfl.walk_repo(storage_root, top_ntuple_segment=top_ntuple_segment):
         now = datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat()
@@ -71,7 +72,9 @@ def check_objects(storage_root, db_conn, top_ntuple_segment='000', sleep_seconds
             db_conn.execute('INSERT INTO checks (timestamp, pid, result) VALUES (?, ?, ?)',
                     (now, pid, 'pass')
                 )
+            # test_val = 1/0
         except Exception as e:
+            logger.debug( f'problem found with pid, ``{pid}``')
             invalid_objects.add(pid)
             db_conn.execute('INSERT INTO checks (timestamp, pid, result) VALUES (?, ?, ?)',
                     (now, pid, f'ERR: {e}')
@@ -95,7 +98,7 @@ if __name__ == '__main__':
     SERVER = get_env_variable('SERVER')
     MAIL_SERVER = get_env_variable('MAIL_SERVER')
     NOTIFICATION_EMAIL_ADDRESS = get_env_variable('NOTIFICATION_EMAIL_ADDRESS')
-    NUM_DIRECTORIES = 24 #out of 4096 => this would go through the whole BDR in 171 days
+    NUM_DIRECTORIES = 1 #24 #out of 4096 => this would go through the whole BDR in 171 days
 
     logger = setup_logger(os.path.join(LOG_DIR, 'validation.log'))
     db_conn = sqlite3.connect(DB_NAME)
